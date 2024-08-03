@@ -1,45 +1,66 @@
-use std::sync::mpsc;
-use std::thread;
-
-use crate::models::Order;
+use tokio::sync::mpsc;
+use std::collections::HashMap;
+use crate::models::{ Order, Trade, TradingPair, PriceUpdate };
 use crate::order_book::{ OrderBook, SimpleOrderBook };
 
 pub enum Message {
     NewOrder(Order),
-    MatchOrders,
+    PriceUpdate(PriceUpdate),
+    MatchOrders(TradingPair),
+    GetPrice(TradingPair, mpsc::Sender<Option<f64>>),
     Shutdown,
 }
 
-pub fn run_order_book(rx: mpsc::Receiver<Message>) {
-    let mut order_book = SimpleOrderBook {
-        buy_orders: Vec::new(),
-        sell_orders: Vec::new(),
-    };
+pub struct Engine {
+    order_books: HashMap<TradingPair, Box<dyn OrderBook>>,
+}
 
-    for message in rx {
-        match message {
-            Message::NewOrder(order) => {
-                order_book.add_order(order);
-            }
+impl Engine {
+    pub fn new() -> Self {
+        Engine {
+            order_books: HashMap::new(),
+        }
+    }
 
-            Message::MatchOrders => {
-                let trades = order_book.match_orders();
-                println!("Executed trades: {:?}", trades);
-            }
-
-            Message::Shutdown => {
-                break;
+    pub async fn run(&mut self, mut rx: mpsc::Receiver<Message>) {
+        while let Some(message) = rx.recv().await {
+            match Message {
+                Message::NewOrder(order) => {
+                    let order_book = self.order_books
+                        .entry(order.trading_pair.clone())
+                        .or_insert_with(||
+                            Box::new(SimpleOrderBook::new(order.trading_pair.clone()))
+                        );
+                    order_book.add_order(order).await;
+                }
+                Message::PriceUpdate(update) => {
+                    println!("Price update: {:?}", update);
+                }
+                Message::MatchOrders(trading_pair) => {
+                    if let Some(order_book) = self.order_books.get(&trading_pair) {
+                        let trades = order_book.match_orders().await;
+                        println!("Executed trades for {:?}: {:?}", trading_pair, trades);
+                    }
+                }
+                Message::GetPrice(trading_pair, response_tx) => {
+                    let price = self.order_books
+                        .get(&trading_pair)
+                        .and_then(|ob| ob.get_current_price().await);
+                    let _ = response_tx.send(price).await;
+                }
+                Message::Shutdown => {
+                    break;
+                }
             }
         }
     }
 }
 
 pub fn start_engine() -> mpsc::Sender<Message> {
-    let (tx, rx) = mpsc::channel();
-
-    thread::spawn(move || {
-        run_order_book(rx);
+    let (tx, rx) = mpsc::channel(100);
+    tokio::spawn(async move {
+        let mut engine = Engine::new();
+        engine.run(rx).await;
     });
-
     tx
 }
