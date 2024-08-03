@@ -1,6 +1,6 @@
 use tokio::sync::mpsc;
 use std::collections::HashMap;
-use crate::models::{ Order, Trade, TradingPair, PriceUpdate };
+use crate::models::{ Order, TradingPair, PriceUpdate };
 use crate::order_book::{ OrderBook, SimpleOrderBook };
 
 pub enum Message {
@@ -24,7 +24,7 @@ impl Engine {
 
     pub async fn run(&mut self, mut rx: mpsc::Receiver<Message>) {
         while let Some(message) = rx.recv().await {
-            match Message {
+            match message {
                 Message::NewOrder(order) => {
                     let order_book = self.order_books
                         .entry(order.trading_pair.clone())
@@ -43,10 +43,14 @@ impl Engine {
                     }
                 }
                 Message::GetPrice(trading_pair, response_tx) => {
-                    let price = self.order_books
-                        .get(&trading_pair)
-                        .and_then(|ob| ob.get_current_price().await);
-                    let _ = response_tx.send(price).await;
+                    let price = if let Some(order_book) = self.order_books.get(&trading_pair) {
+                        order_book.get_current_price().await
+                    } else {
+                        None
+                    };
+                    if let Err(e) = response_tx.send(price).await {
+                        eprintln!("Failed to send price: {:?}", e);
+                    }
                 }
                 Message::Shutdown => {
                     break;
@@ -58,9 +62,11 @@ impl Engine {
 
 pub fn start_engine() -> mpsc::Sender<Message> {
     let (tx, rx) = mpsc::channel(100);
+
     tokio::spawn(async move {
         let mut engine = Engine::new();
         engine.run(rx).await;
     });
+
     tx
 }
