@@ -11,8 +11,7 @@ impl fmt::Display for TradingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TradingError::InvalidOrder => write!(f, "Invalid order"),
-            TradingError::ChannelSendError =>
-                write!(f, "Failed to send message through the channel"),
+            TradingError::ChannelSendError => write!(f, "Failed to send message through channel"),
         }
     }
 }
