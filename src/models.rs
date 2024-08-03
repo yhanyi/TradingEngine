@@ -6,16 +6,16 @@ pub enum OrderType {
 
 #[derive(Debug, Clone)]
 pub struct Order {
-    id: u64,
-    order_type: OrderType,
-    price: f64,
-    quantity: u32,
+    pub id: u64,
+    pub order_type: OrderType,
+    pub price: f64,
+    pub quantity: u32,
 }
 
 #[derive(Debug)]
 pub struct Trade {
-    buy_order_id: u64,
-    sell_order_id: u64,
-    price: f64,
-    quantity: u32,
+    pub buy_order_id: u64,
+    pub sell_order_id: u64,
+    pub price: f64,
+    pub quantity: u32,
 }

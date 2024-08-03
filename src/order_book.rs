@@ -25,7 +25,7 @@ impl OrderBook for SimpleOrderBook {
 
         while let (Some(buy), Some(sell)) = (self.buy_orders.first(), self.sell_orders.first()) {
             if buy.price >= sell.price {
-                let quantity = buy.quantity.min(self.quantity);
+                let quantity = buy.quantity.min(sell.quantity);
                 trades.push(Trade {
                     buy_order_id: buy.id,
                     sell_order_id: sell.id,
