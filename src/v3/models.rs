@@ -1,4 +1,5 @@
 use chrono::{ DateTime, Utc };
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrderType {
@@ -21,6 +22,32 @@ pub struct TradingPair {
     pub base: String,
     pub quote: String,
 }
+
+impl TradingPair {
+  pub fn new(base: String, quote:String) -> Self {
+    TradingPair { base, quote }
+  }
+
+  pub fn from_string(s: &str) -> Result<Self, String> {
+        let parts: Vec<&str> = s.split('/').collect();
+        if parts.len() != 2 {
+            return Err("Invalid trading pair format. Use BASE/QUOTE".to_string());
+        }
+        Ok(TradingPair {
+            base: parts[0].to_string(),
+            quote: parts[1].to_string(),
+        })
+    }
+}
+
+impl FromStr for TradingPair {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        TradingPair::from_string(s)
+    }
+}
+
 
 #[derive(Debug)]
 pub struct Trade {

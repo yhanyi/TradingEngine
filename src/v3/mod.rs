@@ -5,3 +5,4 @@ pub mod price_feed;
 pub mod reporting;
 pub mod order_generator;
 pub mod test;
+pub mod cli;
